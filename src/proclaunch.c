@@ -1,7 +1,94 @@
 #include "proclaunch.h"
 
 #ifdef _WIN32
-    // Windows code
+    #include <windows.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <stdio.h>
+
+    static char* build_cmdline(const char *const argv[]) {
+        size_t total_len = 0;
+        for (int i = 0; argv[i] != NULL; i++) {
+            total_len += strlen(argv[i]) + 3;
+        }
+        
+        char *cmd = malloc(total_len + 1);
+        if (!cmd) return NULL;
+        cmd[0] = '\0';
+        
+        for (int i = 0; argv[i] != NULL; i++) {
+            if (i > 0) strcat(cmd, " ");
+            
+            int has_space = strchr(argv[i], ' ') != NULL;
+            int has_quote = strchr(argv[i], '"') != NULL;
+            
+            if (has_space || has_quote) {
+                strcat(cmd, "\"");
+                const char *p = argv[i];
+                while (*p) {
+                    if (*p == '"') strcat(cmd, "\\\"");
+                    else { char tmp[2] = {*p, '\0'}; strcat(cmd, tmp); }
+                    p++;
+                }
+                strcat(cmd, "\"");
+            } else {
+                strcat(cmd, argv[i]);
+            }
+        }
+        return cmd;
+    }
+
+    int pl_start(const char *const argv[], pl_process *proc) {
+        char *cmdline = build_cmdline(argv);
+        if (!cmdline) return -1;
+
+        STARTUPINFOA si;
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        ZeroMemory(&pi, sizeof(pi));
+
+        if (!CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            free(cmdline);
+            return -1;
+        }
+
+        free(cmdline);
+        CloseHandle(pi.hThread);
+        proc->handle = (intptr_t)pi.hProcess;
+        proc->pid = (long)pi.dwProcessId;
+        return 0;
+    }
+
+    int pl_wait(pl_process *proc, int *exit_code) {
+        HANDLE h = (HANDLE)proc->handle;
+        WaitForSingleObject(h, INFINITE);
+        
+        DWORD code;
+        if (!GetExitCodeProcess(h, &code)) {
+            return -1;
+        }
+        CloseHandle(h);
+        *exit_code = (int)code;
+        return 0;
+    }
+
+    int pl_poll(pl_process *proc, int *exit_code) {
+        HANDLE h = (HANDLE)proc->handle;
+        DWORD wait_res = WaitForSingleObject(h, 0);
+        
+        if (wait_res == WAIT_TIMEOUT) {
+            return 0;
+        }
+        
+        DWORD code;
+        if (!GetExitCodeProcess(h, &code)) {
+            return -1;
+        }
+        CloseHandle(h);
+        *exit_code = (int)code;
+        return 1;
+    }
 #else
     #include <unistd.h>
     #include <sys/wait.h>
