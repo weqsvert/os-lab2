@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/proctest.dir/test/proctest.c.o  -o proctest  libproclaunch.a 

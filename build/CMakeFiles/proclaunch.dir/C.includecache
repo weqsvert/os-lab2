@@ -1,0 +1,24 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/proclaunch.h
+stdint.h
+-
+
+/home/uliana/os-lab2/src/proclaunch.c
+proclaunch.h
+/home/uliana/os-lab2/src/proclaunch.h
+unistd.h
+-
+sys/wait.h
+-
+errno.h
+-
+fcntl.h
+-
+

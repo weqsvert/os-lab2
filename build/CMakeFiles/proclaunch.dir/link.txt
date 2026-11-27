@@ -1,0 +1,2 @@
+/usr/bin/ar qc libproclaunch.a  CMakeFiles/proclaunch.dir/src/proclaunch.c.o
+/usr/bin/ranlib libproclaunch.a

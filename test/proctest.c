@@ -1,0 +1,130 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include "proclaunch.h"
+
+// Вспомогательная функция для сна (чтобы не зависеть от ОС)
+void sleep_ms(int milliseconds) {
+#ifdef _WIN32
+    #include <windows.h>
+    Sleep(milliseconds);
+#else
+    #include <unistd.h>
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+#endif
+}
+
+int main(int argc, char *argv[]) {
+    // ---------------------------------------------------------
+    // РЕЖИМ РЕБЕНКА: Если программа запущена с флагом --child
+    // ---------------------------------------------------------
+    if (argc >= 4 && strcmp(argv[1], "--child") == 0) {
+        // argv[2] - код возврата, argv[3] - сколько миллисекунд спать
+        int exit_code = atoi(argv[2]);
+        int sleep_time = atoi(argv[3]);
+        
+        sleep_ms(sleep_time);
+        return exit_code; 
+    }
+
+    // ---------------------------------------------------------
+    // РЕЖИМ ТЕСТИРОВАНИЯ (Родитель)
+    // ---------------------------------------------------------
+    printf("=== Starting tests ===\n");
+    const char *self = argv[0]; // Путь к текущей программе
+    int tests_failed = 0;
+
+    // --- ТЕСТ 1: Проверка фонового запуска и pl_poll ---
+    printf("\n[TEST 1] Background launch and pl_poll...\n");
+    const char *args1[] = { self, "--child", "42", "1000", NULL }; // Ребенок спит 1 сек, вернет 42
+    pl_process proc1;
+    
+    if (pl_start(args1, &proc1) != 0) {
+        printf("[FAIL] pl_start failed\n");
+        tests_failed++;
+    } else {
+        int iterations = 0;
+        int code = -1;
+        int status;
+        
+        // Проверяем 10 раз с интервалом 100 мс
+        while (iterations < 15) {
+            status = pl_poll(&proc1, &code);
+            if (status == 1) { // Завершился
+                break;
+            } else if (status == -1) {
+                printf("[FAIL] pl_poll returned error\n");
+                tests_failed++;
+                break;
+            }
+            sleep_ms(100);
+            iterations++;
+        }
+        
+        if (status == 1 && code == 42 && iterations > 3) {
+            printf("[ OK ] Finished with code 42 after %d iterations\n", iterations);
+        } else {
+            printf("[FAIL] Expected code 42, got %d after %d iterations\n", code, iterations);
+            tests_failed++;
+        }
+    }
+
+    // --- ТЕСТ 2: Проверка pl_wait (ожидание) ---
+    printf("\n[TEST 2] Blocking wait...\n");
+    const char *args2[] = { self, "--child", "7", "300", NULL }; // Ребенок спит 0.3 сек, вернет 7
+    pl_process proc2;
+    
+    if (pl_start(args2, &proc2) != 0) {
+        printf("[FAIL] pl_start failed\n");
+        tests_failed++;
+    } else {
+        int code = -1;
+        if (pl_wait(&proc2, &code) == 0 && code == 7) {
+            printf("[ OK ] Finished with code 7\n");
+        } else {
+            printf("[FAIL] Expected code 7, got %d\n", code);
+            tests_failed++;
+        }
+    }
+
+    // --- ТЕСТ 4: Запуск несуществующей программы ---
+    printf("\n[TEST 4] Non-existent program...\n");
+    const char *args4[] = { "no_such_program_12345", NULL };
+    pl_process proc4;
+    
+    if (pl_start(args4, &proc4) == 0) {
+        // Если pl_start вернула 0, значит она думает, что запустила.
+        // Но по заданию мы должны узнать, что exec провалился.
+        // Пока что мы просто убьем этого "зомби" и пометим тест как проваленный.
+        printf("[FAIL] pl_start returned success for non-existent program (need pipe/posix_spawn fix)\n");
+        int code;
+        pl_wait(&proc4, &code); // Убираем зомби
+        tests_failed++;
+    } else {
+        printf("[ OK ] pl_start correctly returned error\n");
+    }
+    
+    // --- ТЕСТ 5: Код возврата больше 255 (Linux обрезает до 8 бит) ---
+    printf("\n[TEST 5] Exit code > 255 (Linux truncation)...\n");
+    const char *args5[] = { self, "--child", "300", "0", NULL }; // Вернуть 300
+    pl_process proc5;
+    
+    if (pl_start(args5, &proc5) == 0) {
+        int code = -1;
+        pl_wait(&proc5, &code);
+        // 300 % 256 = 44
+        if (code == 44) {
+            printf("[ OK ] Got 44 (300 truncated to 8 bits)\n");
+        } else {
+            printf("[FAIL] Expected 44, got %d\n", code);
+            tests_failed++;
+        }
+    }
+
+    printf("\n=== Tests finished. Failed: %d ===\n", tests_failed);
+    return tests_failed > 0 ? 1 : 0;
+}
