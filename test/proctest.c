@@ -1,19 +1,16 @@
-#define _INTRIN_IMPL_H_INCLUDED
-#include "no_intrin.h"
-#include "fix_mingw.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include "proclaunch.h"
 
-// Вспомогательная функция для сна (чтобы не зависеть от ОС)
+// Вспомогательная функция для сна
 void sleep_ms(int milliseconds) {
 #ifdef _WIN32
     #include <windows.h>
     Sleep(milliseconds);
 #else
     #include <unistd.h>
+    #include <time.h>
     struct timespec ts;
     ts.tv_sec = milliseconds / 1000;
     ts.tv_nsec = (milliseconds % 1000) * 1000000;
@@ -26,9 +23,19 @@ int main(int argc, char *argv[]) {
     // РЕЖИМ РЕБЕНКА: Если программа запущена с флагом --child
     // ---------------------------------------------------------
     if (argc >= 4 && strcmp(argv[1], "--child") == 0) {
-        // argv[2] - код возврата, argv[3] - сколько миллисекунд спать
         int exit_code = atoi(argv[2]);
         int sleep_time = atoi(argv[3]);
+        
+        // Если передан 5-й аргумент (для Теста 3), проверяем его
+        if (argc >= 5) {
+            const char *expected = "hello \"big\" world\\";
+            if (strcmp(argv[4], expected) == 0) {
+                return 1; // Успех: аргумент не искажён
+            } else {
+                printf("Child: got '%s', expected '%s'\n", argv[4], expected);
+                return 0; // Провал: аргумент искажён
+            }
+        }
         
         sleep_ms(sleep_time);
         return exit_code; 
@@ -54,7 +61,7 @@ int main(int argc, char *argv[]) {
         int code = -1;
         int status;
         
-        // Проверяем 10 раз с интервалом 100 мс
+        // Проверяем 15 раз с интервалом 100 мс
         while (iterations < 15) {
             status = pl_poll(&proc1, &code);
             if (status == 1) { // Завершился
@@ -94,16 +101,32 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // --- ТЕСТ 3: Аргумент с пробелами ---
+    printf("\n[TEST 3] Argument with spaces...\n");
+    // Передаем аргумент: hello "big" world\
+    const char *args3[] = { self, "--child", "0", "0", "hello \"big\" world\\", NULL };
+    pl_process proc3;
+    
+    if (pl_start(args3, &proc3) != 0) {
+        printf("[FAIL] pl_start failed\n");
+        tests_failed++;
+    } else {
+        int code = -1;
+        if (pl_wait(&proc3, &code) == 0 && code == 1) {
+            printf("[ OK ] Child received argument without distortion\n");
+        } else {
+            printf("[FAIL] Argument was distorted or child failed (code %d)\n", code);
+            tests_failed++;
+        }
+    }
+
     // --- ТЕСТ 4: Запуск несуществующей программы ---
     printf("\n[TEST 4] Non-existent program...\n");
     const char *args4[] = { "no_such_program_12345", NULL };
     pl_process proc4;
     
     if (pl_start(args4, &proc4) == 0) {
-        // Если pl_start вернула 0, значит она думает, что запустила.
-        // Но по заданию мы должны узнать, что exec провалился.
-        // Пока что мы просто убьем этого "зомби" и пометим тест как проваленный.
-        printf("[FAIL] pl_start returned success for non-existent program (need pipe/posix_spawn fix)\n");
+        printf("[FAIL] pl_start returned success for non-existent program\n");
         int code;
         pl_wait(&proc4, &code); // Убираем зомби
         tests_failed++;
@@ -112,13 +135,21 @@ int main(int argc, char *argv[]) {
     }
     
     // --- ТЕСТ 5: Код возврата больше 255 (Linux обрезает до 8 бит) ---
-    printf("\n[TEST 5] Exit code > 255 (Linux truncation)...\n");
+    printf("\n[TEST 5] Exit code > 255...\n");
     const char *args5[] = { self, "--child", "300", "0", NULL }; // Вернуть 300
     pl_process proc5;
     
     if (pl_start(args5, &proc5) == 0) {
         int code = -1;
         pl_wait(&proc5, &code);
+#ifdef _WIN32
+        if (code == 300) {
+            printf("[ OK ] Got 300 (Windows keeps 32-bit code)\n");
+        } else {
+            printf("[FAIL] Expected 300, got %d\n", code);
+            tests_failed++;
+        }
+#else
         // 300 % 256 = 44
         if (code == 44) {
             printf("[ OK ] Got 44 (300 truncated to 8 bits)\n");
@@ -126,6 +157,7 @@ int main(int argc, char *argv[]) {
             printf("[FAIL] Expected 44, got %d\n", code);
             tests_failed++;
         }
+#endif
     }
 
     printf("\n=== Tests finished. Failed: %d ===\n", tests_failed);
