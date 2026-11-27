@@ -1,5 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/proclaunch.dir/src/proclaunch.c.o"
+  "CMakeFiles/proclaunch.dir/src/proclaunch.c.obj"
+  "CMakeFiles/proclaunch.dir/src/proclaunch.c.obj.d"
   "libproclaunch.a"
   "libproclaunch.pdb"
 )

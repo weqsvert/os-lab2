@@ -1,3 +1,6 @@
+#define _INTRIN_IMPL_H_INCLUDED
+#include "no_intrin.h"
+#include "fix_mingw.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

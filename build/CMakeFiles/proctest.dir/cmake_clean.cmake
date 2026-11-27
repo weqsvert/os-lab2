@@ -1,6 +1,9 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/proctest.dir/test/proctest.c.o"
-  "proctest"
+  "CMakeFiles/proctest.dir/test/proctest.c.obj"
+  "CMakeFiles/proctest.dir/test/proctest.c.obj.d"
+  "libproctest.dll.a"
+  "proctest.exe"
+  "proctest.exe.manifest"
   "proctest.pdb"
 )
 

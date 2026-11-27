@@ -1,4 +1,4 @@
-/home/uliana/os-lab2/build/CMakeFiles/rebuild_cache.dir
-/home/uliana/os-lab2/build/CMakeFiles/proctest.dir
-/home/uliana/os-lab2/build/CMakeFiles/edit_cache.dir
-/home/uliana/os-lab2/build/CMakeFiles/proclaunch.dir
+C:/Users/mmvvl/os-lab2/build/CMakeFiles/proclaunch.dir
+C:/Users/mmvvl/os-lab2/build/CMakeFiles/proctest.dir
+C:/Users/mmvvl/os-lab2/build/CMakeFiles/edit_cache.dir
+C:/Users/mmvvl/os-lab2/build/CMakeFiles/rebuild_cache.dir

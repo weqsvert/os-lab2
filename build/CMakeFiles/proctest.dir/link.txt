@@ -1,1 +1,3 @@
-/usr/bin/cc -g   CMakeFiles/proctest.dir/test/proctest.c.o  -o proctest  libproclaunch.a 
+C:\msys64\ucrt64\bin\cmake.exe -E rm -f CMakeFiles\proctest.dir/objects.a
+C:\msys64\clang64\bin\llvm-ar.exe qc CMakeFiles\proctest.dir/objects.a @CMakeFiles\proctest.dir\objects1.rsp
+C:\msys64\clang64\bin\clang.exe -g -Wl,--whole-archive CMakeFiles\proctest.dir/objects.a -Wl,--no-whole-archive -o proctest.exe -Wl,--out-implib,libproctest.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\proctest.dir\linkLibs.rsp
